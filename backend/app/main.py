@@ -1,6 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from typing import List, Dict
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+
+from.db import SessionLocal
+from.models import Song
 
 app = FastAPI(title="AI Music Player Backend")
 
@@ -11,25 +15,31 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-SONGS = [
-    {"id": 1, "title": "Snowy Night Vibes", "artist": "Demo Artist"},
-    {"id": 2, "title": "Chill Study Beat", "artist": "Demo Artist"},
-    {"id": 3, "title": "Lo-Fi Study Flow", "artist": "Demo Artist"},
-]
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
 
 @app.get("/songs")
-def get_songs() -> List[Dict]:
-    return SONGS
+def get_songs(db: Session = Depends(get_db)) -> List[Dict]:
+    songs = db.query(Song).all()
+    return [
+        {
+            "id": song.id,
+            "title": song.title,
+            "artist": song.artist,
+        }
+        for song in songs
+    ]
